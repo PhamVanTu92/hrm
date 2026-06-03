@@ -9,14 +9,14 @@
 #   * bind our container nginx to 127.0.0.1:8090 only
 #   * let the HOST nginx terminate TLS for the domain and proxy -> 127.0.0.1:8090
 #     (see deploy/newhrm.foxai.com.vn.conf)
-#   * read secrets from ./secrets and run in production mode
+#   * read the CRYPTO keys (jwt/aes/blind/s3) from ./secrets via SECRETS_DIR
+#   * read the DB password from .env (POSTGRES_PASSWORD + DATABASE_URL) so that
+#     postgres, pgbouncer and the app all agree (pgbouncer can't read secrets).
 #
 # Requires Docker Compose v2.24+ for the !override tag.
 # ============================================================================
 
 secrets:
-  database_url:
-    file: ./secrets/database_url
   jwt_secret_key:
     file: ./secrets/jwt_secret_key
   aes_key_hex:
@@ -25,11 +25,8 @@ secrets:
     file: ./secrets/blind_index_key_hex
   s3_secret_key:
     file: ./secrets/s3_secret_key
-  postgres_password:
-    file: ./secrets/postgres_password
 
 x-app-secrets: &app-secrets
-  - database_url
   - jwt_secret_key
   - aes_key_hex
   - blind_index_key_hex
@@ -42,13 +39,6 @@ x-prod-env: &prod-env
 
 services:
   db:
-    environment:
-      # Base file sets POSTGRES_PASSWORD; blank it so the postgres entrypoint
-      # uses ONLY the _FILE variant (they are mutually exclusive).
-      POSTGRES_PASSWORD: ""
-      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
-    secrets:
-      - postgres_password
     ports: !override []        # internal only — host 5432 is taken
 
   pgbouncer:

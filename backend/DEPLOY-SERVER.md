@@ -19,10 +19,15 @@ Point `newhrm.foxai.com.vn` A-record to the server's public IP.
 ## 2. Clone + config (non-secret `.env`)
 ```bash
 git clone <repo-url> /opt/hrm && cd /opt/hrm/backend
-cat > .env <<'EOF'
+# Pick one DB password and use it in BOTH lines below:
+PGPASS=$(openssl rand -hex 16)
+cat > .env <<EOF
 APP_NAME=HRM
+COMPOSE_PROJECT_NAME=hrm
 POSTGRES_USER=hrm
 POSTGRES_DB=hrm
+POSTGRES_PASSWORD=${PGPASS}
+DATABASE_URL=postgresql+asyncpg://hrm:${PGPASS}@pgbouncer:6432/hrm
 REDIS_URL=redis://redis:6379/0
 RATE_LIMIT_REDIS_URL=redis://redis:6379/1
 CELERY_BROKER_URL=redis://redis:6379/2
@@ -43,20 +48,20 @@ EOF
 chmod 600 .env
 ```
 
-## 3. Secrets (git-ignored)
+## 3. Secrets — crypto keys only (git-ignored)
+The DB password lives in `.env` (step 2) because pgbouncer can't read Docker
+secrets. Only the crypto keys are file-secrets. **Do NOT use `sudo`** here (the
+files must be owned by your user). No trailing newline (`tr -d '\n'`):
 ```bash
 mkdir -p secrets
-PGPASS=$(openssl rand -hex 16)
-echo -n "$PGPASS"                                               > secrets/postgres_password
-echo -n "postgresql+asyncpg://hrm:${PGPASS}@pgbouncer:6432/hrm"  > secrets/database_url
-python3 -c "import secrets;print(secrets.token_urlsafe(48),end='')" > secrets/jwt_secret_key
-python3 -c "import secrets;print(secrets.token_hex(32),end='')"     > secrets/aes_key_hex
-python3 -c "import secrets;print(secrets.token_hex(32),end='')"     > secrets/blind_index_key_hex
-echo -n "minioadmin"                                            > secrets/s3_secret_key
+openssl rand -hex 48 | tr -d '\n' > secrets/jwt_secret_key         # >=32
+openssl rand -hex 32 | tr -d '\n' > secrets/aes_key_hex            # exactly 64
+openssl rand -hex 32 | tr -d '\n' > secrets/blind_index_key_hex    # exactly 64
+printf '%s' "minioadmin"          > secrets/s3_secret_key
 chmod 600 secrets/*
+ls -la secrets/   # 4 files, each starts with '-' (file, not 'd')
 ```
-> SSO client secret: add `MS_CLIENT_SECRET=<value>` to `.env` (step 2). The core
-> secrets above stay in `./secrets/` (mounted at `/run/secrets`).
+> SSO client secret: add `MS_CLIENT_SECRET=<value>` to `.env` (step 2).
 
 ## 4. Build + run (the command)
 ```bash
