@@ -43,6 +43,9 @@ x-prod-env: &prod-env
 services:
   db:
     environment:
+      # Base file sets POSTGRES_PASSWORD; blank it so the postgres entrypoint
+      # uses ONLY the _FILE variant (they are mutually exclusive).
+      POSTGRES_PASSWORD: ""
       POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
     secrets:
       - postgres_password
