@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Request, status
+from fastapi import APIRouter, Depends, Request, Response, status
 from fastapi.responses import RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -37,8 +37,13 @@ def _client_ip(request: Request) -> str | None:
 
 @router.post("/login", response_model=TokenResponse)
 @limiter.limit("10/minute")
-async def login(request: Request, payload: LoginRequest, db: DbDep) -> TokenResponse:
-    """Authenticate and return an access + refresh token pair."""
+async def login(
+    request: Request, response: Response, payload: LoginRequest, db: DbDep
+) -> TokenResponse:
+    """Authenticate and return an access + refresh token pair.
+
+    ``response`` is required by slowapi to inject rate-limit headers.
+    """
     return await AuthService(db).login(
         username=payload.username,
         password=payload.password,
@@ -49,7 +54,9 @@ async def login(request: Request, payload: LoginRequest, db: DbDep) -> TokenResp
 
 @router.post("/refresh", response_model=TokenResponse)
 @limiter.limit("30/minute")
-async def refresh(request: Request, payload: RefreshRequest, db: DbDep) -> TokenResponse:
+async def refresh(
+    request: Request, response: Response, payload: RefreshRequest, db: DbDep
+) -> TokenResponse:
     """Rotate a refresh token, returning a fresh token pair."""
     return await AuthService(db).refresh(
         raw_refresh=payload.refresh_token,
