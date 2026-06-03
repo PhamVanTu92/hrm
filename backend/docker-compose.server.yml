@@ -51,9 +51,12 @@ services:
     ports: !override []        # host 9000/9001 are taken; reach via SSH tunnel if needed
 
   # migrate imports app.core.config too -> needs the crypto secrets + SECRETS_DIR.
+  # Connect DIRECTLY to postgres (already healthy), bypassing pgbouncer which has
+  # no healthcheck and may not accept connections yet when this one-shot runs.
   migrate:
     environment:
       <<: *prod-env
+      DATABASE_URL: postgresql+asyncpg://hrm:${POSTGRES_PASSWORD}@db:5432/hrm
     secrets: *app-secrets
 
   api:
@@ -74,6 +77,7 @@ services:
   bootstrap:
     environment:
       <<: *prod-env
+      DATABASE_URL: postgresql+asyncpg://hrm:${POSTGRES_PASSWORD}@db:5432/hrm
     secrets: *app-secrets
 
   # Our container nginx (HTTP, routes / -> frontend, /api -> api). TLS is done
