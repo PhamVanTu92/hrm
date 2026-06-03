@@ -50,6 +50,12 @@ services:
   minio:
     ports: !override []        # host 9000/9001 are taken; reach via SSH tunnel if needed
 
+  # migrate imports app.core.config too -> needs the crypto secrets + SECRETS_DIR.
+  migrate:
+    environment:
+      <<: *prod-env
+    secrets: *app-secrets
+
   api:
     environment:
       <<: *prod-env
