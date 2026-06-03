@@ -9,10 +9,10 @@ from __future__ import annotations
 
 import os
 from functools import lru_cache
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import Field, PostgresDsn, RedisDsn, field_validator, model_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -71,7 +71,11 @@ class Settings(BaseSettings):
     LOGIN_RATE_LIMIT: str = "10/minute"
 
     # ---- CORS ----
-    CORS_ORIGINS: list[str] = Field(default_factory=lambda: ["http://localhost:3000"])
+    # NoDecode: take the raw env string (e.g. "https://a.com,https://b.com") and
+    # let _split_cors handle it, instead of pydantic-settings trying json.loads.
+    CORS_ORIGINS: Annotated[list[str], NoDecode] = Field(
+        default_factory=lambda: ["http://localhost:3000"]
+    )
 
     # ---- Storage (S3 / MinIO) ----
     S3_ENDPOINT: str | None = None
