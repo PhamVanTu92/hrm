@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <style>
+    @page { size: A4; margin: 2cm; }
+    body { font-family: "DejaVu Sans", sans-serif; font-size: 12px; color: #222; }
+    h1 { font-size: 18px; text-align: center; margin-bottom: 4px; }
+    .sub { text-align: center; color: #666; margin-bottom: 16px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+    th, td { border: 1px solid #ccc; padding: 6px 8px; text-align: left; }
+    th { background: #f2f2f2; }
+    td.amount { text-align: right; font-variant-numeric: tabular-nums; }
+    .total td { font-weight: bold; background: #fafafa; }
+    .meta td { border: none; padding: 2px 0; }
+  </style>
+</head>
+<body>
+  <h1>PHIẾU LƯƠNG</h1>
+  <div class="sub">Kỳ lương: {{ period }}</div>
+
+  <table>
+    <tr class="meta"><td><b>Mã NV:</b> {{ employee_code }}</td>
+        <td><b>Họ tên:</b> {{ full_name }}</td></tr>
+  </table>
+
+  <table>
+    <thead><tr><th>Khoản mục (biến)</th><th>Giá trị</th></tr></thead>
+    <tbody>
+      {% for key, value in lines %}
+      <tr><td>{{ key }}</td><td class="amount">{{ "{:,.2f}".format(value) }}</td></tr>
+      {% endfor %}
+      <tr class="total"><td>THỰC LĨNH (TONG_LUONG)</td>
+          <td class="amount">{{ "{:,.2f}".format(net) }}</td></tr>
+    </tbody>
+  </table>
+
+  <p style="margin-top:16px;color:#666;">
+    File được bảo vệ bằng mật khẩu: {{ pwd_hint }}.
+  </p>
+</body>
+</html>

@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# Virtualenv
+.venv/
+venv/
+env/
+
+# Tooling caches
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+coverage.xml
+
+# Secrets / local config — never commit
+.env
+.env.*
+!.env.example
+
+# Production secrets + TLS certs (Docker secrets / Vault-rendered)
+secrets/
+certs/
+
+# Backups
+backups/
+
+# Editor / OS
+.vscode/
+.idea/
+*.swp
+.DS_Store

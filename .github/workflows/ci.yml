@@ -1,0 +1,87 @@
+name: Backend CI
+
+# Lint + type-check + full test suite for the HRM backend.
+# Tests use testcontainers, which needs Docker — available by default on
+# GitHub-hosted ubuntu runners.
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - "backend/**"
+      - ".github/workflows/ci.yml"
+  pull_request:
+    paths:
+      - "backend/**"
+      - ".github/workflows/ci.yml"
+
+# Cancel superseded runs on the same ref to save CI minutes.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: backend
+
+jobs:
+  # --------------------------------------------------------------------- #
+  # Static analysis — fast, no Docker / DB needed.                        #
+  # --------------------------------------------------------------------- #
+  lint:
+    name: Lint & type-check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/pyproject.toml
+
+      - name: Install dependencies
+        run: pip install -e ".[dev]"
+
+      - name: Ruff (lint + format check)
+        run: |
+          ruff check .
+          ruff format --check .
+
+      - name: Mypy (type check)
+        run: mypy app
+
+      - name: Import smoke test
+        env:
+          JWT_SECRET_KEY: ci-secret-key-at-least-32-characters-long-xx
+          AES_KEY_HEX: "0000000000000000000000000000000000000000000000000000000000000000"
+          BLIND_INDEX_KEY_HEX: "1111111111111111111111111111111111111111111111111111111111111111"
+          DATABASE_URL: postgresql+asyncpg://ci:ci@localhost:5432/ci
+        run: python -m scripts.smoke_imports
+
+  # --------------------------------------------------------------------- #
+  # Test suite — spins up real Postgres via testcontainers and applies    #
+  # the production Alembic migrations before running pytest.              #
+  # --------------------------------------------------------------------- #
+  test:
+    name: Tests (pytest + testcontainers)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/pyproject.toml
+
+      - name: Install dependencies
+        run: pip install -e ".[dev]"
+
+      - name: Pre-pull Postgres image
+        run: docker pull postgres:16-alpine
+
+      - name: Run tests
+        # conftest.py sets all required env vars via os.environ.setdefault,
+        # so no extra env is needed here.
+        run: pytest -q --maxfail=1

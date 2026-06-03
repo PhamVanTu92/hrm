@@ -1,0 +1,72 @@
+# ============================================================================
+# Production override. Use together with the base file:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# Hardening vs. the base stack:
+#   - Secrets come from Docker secrets (files in ./secrets/, ideally rendered by
+#     Vault Agent), NOT from .env. The app reads them via SECRETS_DIR=/run/secrets.
+#   - APP_ENV=production turns off /docs and triggers the weak-secret guard.
+#   - nginx terminates TLS on 443 (nginx.prod.conf + ./certs).
+#   - Postgres password is provided via POSTGRES_PASSWORD_FILE.
+#
+# Populate ./secrets/ (git-ignored) with one file per secret:
+#   database_url, jwt_secret_key, aes_key_hex, blind_index_key_hex,
+#   s3_secret_key, postgres_password
+# ============================================================================
+
+secrets:
+  database_url:
+    file: ./secrets/database_url
+  jwt_secret_key:
+    file: ./secrets/jwt_secret_key
+  aes_key_hex:
+    file: ./secrets/aes_key_hex
+  blind_index_key_hex:
+    file: ./secrets/blind_index_key_hex
+  s3_secret_key:
+    file: ./secrets/s3_secret_key
+  postgres_password:
+    file: ./secrets/postgres_password
+
+x-app-secrets: &app-secrets
+  - database_url
+  - jwt_secret_key
+  - aes_key_hex
+  - blind_index_key_hex
+  - s3_secret_key
+
+x-prod-env: &prod-env
+  APP_ENV: production
+  DEBUG: "false"
+  SECRETS_DIR: /run/secrets
+
+services:
+  db:
+    environment:
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+    secrets:
+      - postgres_password
+    ports: !reset []          # do not publish the DB port in production
+
+  api:
+    environment:
+      <<: *prod-env
+    secrets: *app-secrets
+
+  worker:
+    environment:
+      <<: *prod-env
+    secrets: *app-secrets
+
+  beat:
+    environment:
+      <<: *prod-env
+    secrets: *app-secrets
+
+  nginx:
+    volumes:
+      - ./nginx.prod.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./certs:/etc/nginx/certs:ro
+    ports:
+      - "80:80"
+      - "443:443"

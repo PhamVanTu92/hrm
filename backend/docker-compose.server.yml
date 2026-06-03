@@ -1,0 +1,84 @@
+# ============================================================================
+# Server override for newhrm.foxai.com.vn.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.server.yml up -d --build
+#
+# This host already runs a system nginx on :80/:443 and has many busy ports
+# (5432, 6379, 9000/9001, 3000, 8000, ...). So here we:
+#   * publish NO infra ports (db/redis/minio/pgbouncer stay on the internal net)
+#   * bind our container nginx to 127.0.0.1:8090 only
+#   * let the HOST nginx terminate TLS for the domain and proxy -> 127.0.0.1:8090
+#     (see deploy/newhrm.foxai.com.vn.conf)
+#   * read secrets from ./secrets and run in production mode
+#
+# Requires Docker Compose v2.24+ for the !override tag.
+# ============================================================================
+
+secrets:
+  database_url:
+    file: ./secrets/database_url
+  jwt_secret_key:
+    file: ./secrets/jwt_secret_key
+  aes_key_hex:
+    file: ./secrets/aes_key_hex
+  blind_index_key_hex:
+    file: ./secrets/blind_index_key_hex
+  s3_secret_key:
+    file: ./secrets/s3_secret_key
+  postgres_password:
+    file: ./secrets/postgres_password
+
+x-app-secrets: &app-secrets
+  - database_url
+  - jwt_secret_key
+  - aes_key_hex
+  - blind_index_key_hex
+  - s3_secret_key
+
+x-prod-env: &prod-env
+  APP_ENV: production
+  DEBUG: "false"
+  SECRETS_DIR: /run/secrets
+
+services:
+  db:
+    environment:
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+    secrets:
+      - postgres_password
+    ports: !override []        # internal only — host 5432 is taken
+
+  pgbouncer:
+    ports: !override []
+
+  redis:
+    ports: !override []
+
+  minio:
+    ports: !override []        # host 9000/9001 are taken; reach via SSH tunnel if needed
+
+  api:
+    environment:
+      <<: *prod-env
+    secrets: *app-secrets
+
+  worker:
+    environment:
+      <<: *prod-env
+    secrets: *app-secrets
+
+  beat:
+    environment:
+      <<: *prod-env
+    secrets: *app-secrets
+
+  bootstrap:
+    environment:
+      <<: *prod-env
+    secrets: *app-secrets
+
+  # Our container nginx (HTTP, routes / -> frontend, /api -> api). TLS is done
+  # by the HOST nginx in front. Bind to loopback so only the host can reach it.
+  nginx:
+    ports: !override
+      - "127.0.0.1:8090:80"
