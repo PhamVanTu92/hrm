@@ -58,8 +58,11 @@ openssl rand -hex 48 | tr -d '\n' > secrets/jwt_secret_key         # >=32
 openssl rand -hex 32 | tr -d '\n' > secrets/aes_key_hex            # exactly 64
 openssl rand -hex 32 | tr -d '\n' > secrets/blind_index_key_hex    # exactly 64
 printf '%s' "minioadmin"          > secrets/s3_secret_key
-chmod 600 secrets/*
-ls -la secrets/   # 4 files, each starts with '-' (file, not 'd')
+# 644, NOT 600: compose mounts file-secrets preserving host perms, and the app
+# container runs as a non-root user whose uid differs from yours — it must be
+# able to read them. The host directory itself is the access boundary.
+chmod 644 secrets/*
+ls -la secrets/   # 4 files, mode -rw-r--r--, each starts with '-' (file, not 'd')
 ```
 > SSO client secret: add `MS_CLIENT_SECRET=<value>` to `.env` (step 2).
 
